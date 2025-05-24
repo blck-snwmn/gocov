@@ -44,7 +44,7 @@ func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[stri
 
 	for _, profile := range profiles {
 		dir := filepath.Dir(profile.FileName)
-		
+
 		// Adjust directory path based on level
 		if level > 0 {
 			parts := strings.Split(dir, string(filepath.Separator))
@@ -56,7 +56,7 @@ func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[stri
 			dir = "."
 		}
 		// level == 0 means use the original directory (leaf level)
-		
+
 		if _, exists := coverageByDir[dir]; !exists {
 			coverageByDir[dir] = &dirCoverage{dir: dir}
 		}
@@ -64,7 +64,7 @@ func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[stri
 		for _, block := range profile.Blocks {
 			stmtCount := block.NumStmt
 			coverageByDir[dir].stmtCount += stmtCount
-			
+
 			if block.Count > 0 {
 				coverageByDir[dir].stmtCovered += stmtCount
 			}
@@ -89,29 +89,29 @@ func displayResults(coverageByDir map[string]*dirCoverage) {
 	// Display coverage for each directory
 	totalStmts := 0
 	totalCovered := 0
-	
+
 	for _, dir := range dirs {
 		cov := coverageByDir[dir]
 		coverage := 0.0
 		if cov.stmtCount > 0 {
 			coverage = float64(cov.stmtCovered) / float64(cov.stmtCount) * 100
 		}
-		
-		fmt.Printf("%-50s %10d %10d %7.1f%%\n", 
+
+		fmt.Printf("%-50s %10d %10d %7.1f%%\n",
 			dir, cov.stmtCount, cov.stmtCovered, coverage)
-		
+
 		totalStmts += cov.stmtCount
 		totalCovered += cov.stmtCovered
 	}
 
 	// Display total
 	fmt.Println(strings.Repeat("-", 80))
-	
+
 	totalCoverage := 0.0
 	if totalStmts > 0 {
 		totalCoverage = float64(totalCovered) / float64(totalStmts) * 100
 	}
-	
-	fmt.Printf("%-50s %10d %10d %7.1f%%\n", 
+
+	fmt.Printf("%-50s %10d %10d %7.1f%%\n",
 		"TOTAL", totalStmts, totalCovered, totalCoverage)
 }
