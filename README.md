@@ -53,6 +53,7 @@ gocov -coverprofile=coverage.out
 - `-min`: 表示する最小カバレッジ率（0-100、デフォルト: 0）
 - `-max`: 表示する最大カバレッジ率（0-100、デフォルト: 100）
 - `-format`: 出力フォーマット（table または json、デフォルト: table）
+- `-ignore`: 無視するディレクトリのカンマ区切りリスト（ワイルドカード対応）
 
 ### 出力例
 
@@ -140,6 +141,17 @@ $ gocov -coverprofile=coverage.out -format json -min 75
 }
 ```
 
+特定のディレクトリを無視して集計:
+```
+$ gocov -coverprofile=coverage.out -ignore "*/internal/*,*/vendor/*"
+Directory                                          Statements    Covered Coverage
+--------------------------------------------------------------------------------
+github.com/example/project/cmd/server                      7          5   71.4%
+github.com/example/project/pkg/util                        7          5   71.4%
+--------------------------------------------------------------------------------
+TOTAL                                                     14         10   71.4%
+```
+
 ## 動作原理
 
 `gocov`は以下の手順でカバレッジを集計します：
@@ -157,6 +169,7 @@ $ gocov -coverprofile=coverage.out -format json -min 75
 - コードレビュー時のカバレッジ確認
 - モジュール単位でのテスト品質の可視化
 - カバレッジが低いディレクトリの特定（-minフラグを活用）
+- テストやvendorディレクトリを除外したカバレッジ分析（-ignoreフラグを活用）
 
 ## 制限事項
 

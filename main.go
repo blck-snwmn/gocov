@@ -48,11 +48,13 @@ func main() {
 	var level int
 	var minCoverage, maxCoverage float64
 	var outputFormat string
+	var ignoreDirs string
 	flag.StringVar(&coverProfile, "coverprofile", "", "Path to coverage profile file")
 	flag.IntVar(&level, "level", 0, "Directory level for aggregation (0 for leaf directories, -1 for all levels)")
 	flag.Float64Var(&minCoverage, "min", 0.0, "Minimum coverage percentage to display (0-100)")
 	flag.Float64Var(&maxCoverage, "max", 100.0, "Maximum coverage percentage to display (0-100)")
 	flag.StringVar(&outputFormat, "format", "table", "Output format (table or json)")
+	flag.StringVar(&ignoreDirs, "ignore", "", "Comma-separated list of directories to ignore (supports wildcards)")
 	flag.Parse()
 
 	if coverProfile == "" {
@@ -75,7 +77,16 @@ func main() {
 		log.Fatalf("Failed to parse coverage profile: %v", err)
 	}
 
-	coverageByDir := aggregateCoverageByDirectory(profiles, level)
+	// Parse ignored directories
+	var ignoredPatterns []string
+	if ignoreDirs != "" {
+		ignoredPatterns = strings.Split(ignoreDirs, ",")
+		for i := range ignoredPatterns {
+			ignoredPatterns[i] = strings.TrimSpace(ignoredPatterns[i])
+		}
+	}
+
+	coverageByDir := aggregateCoverageByDirectory(profiles, level, ignoredPatterns)
 
 	// Select formatter based on output format
 	var formatter OutputFormatter
@@ -93,11 +104,16 @@ func main() {
 	}
 }
 
-func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[string]*dirCoverage {
+func aggregateCoverageByDirectory(profiles []*cover.Profile, level int, ignoredPatterns []string) map[string]*dirCoverage {
 	coverageByDir := make(map[string]*dirCoverage)
 
 	for _, profile := range profiles {
 		dir := filepath.Dir(profile.FileName)
+
+		// Check if directory should be ignored
+		if shouldIgnoreDirectory(dir, ignoredPatterns) {
+			continue
+		}
 
 		// Adjust directory path based on level
 		if level > 0 {
@@ -126,6 +142,53 @@ func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[stri
 	}
 
 	return coverageByDir
+}
+
+// shouldIgnoreDirectory checks if a directory matches any of the ignore patterns
+func shouldIgnoreDirectory(dir string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if pattern == "" {
+			continue
+		}
+
+		// Direct match
+		matched, err := filepath.Match(pattern, dir)
+		if err != nil {
+			continue
+		}
+		if matched {
+			return true
+		}
+
+		// Check if the pattern contains path separators
+		if strings.Contains(pattern, "/") {
+			// Try to match against the full path
+			if matched, _ := filepath.Match(pattern, dir); matched {
+				return true
+			}
+
+			// Check if dir contains the pattern
+			if strings.Contains(dir, strings.Trim(pattern, "*")) {
+				return true
+			}
+		}
+
+		// Check each component of the path
+		parts := strings.Split(dir, string(filepath.Separator))
+		for i := range parts {
+			// Try matching individual parts
+			if matched, _ := filepath.Match(pattern, parts[i]); matched {
+				return true
+			}
+
+			// Also check combinations from the beginning
+			partialPath := filepath.Join(parts[:i+1]...)
+			if matched, _ := filepath.Match(pattern, partialPath); matched {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // calculateCoverage calculates the coverage percentage

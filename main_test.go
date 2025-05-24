@@ -18,7 +18,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 	}
 
 	t.Run("level 0 (leaf directories)", func(t *testing.T) {
-		result := aggregateCoverageByDirectory(profiles, 0)
+		result := aggregateCoverageByDirectory(profiles, 0, nil)
 
 		tests := []struct {
 			dir          string
@@ -70,7 +70,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 	})
 
 	t.Run("level -1 (top level)", func(t *testing.T) {
-		result := aggregateCoverageByDirectory(profiles, -1)
+		result := aggregateCoverageByDirectory(profiles, -1, nil)
 
 		cov, exists := result["."]
 		if !exists {
@@ -96,7 +96,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 	})
 
 	t.Run("level 3 (github.com/example/project)", func(t *testing.T) {
-		result := aggregateCoverageByDirectory(profiles, 3)
+		result := aggregateCoverageByDirectory(profiles, 3, nil)
 
 		cov, exists := result["github.com/example/project"]
 		if !exists {
@@ -122,7 +122,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 	})
 
 	t.Run("level 4 (github.com/example/project/pkg, cmd, internal)", func(t *testing.T) {
-		result := aggregateCoverageByDirectory(profiles, 4)
+		result := aggregateCoverageByDirectory(profiles, 4, nil)
 
 		tests := []struct {
 			dir          string
@@ -423,7 +423,7 @@ func TestErrorCases(t *testing.T) {
 		}
 
 		// Test with empty data
-		coverageByDir := aggregateCoverageByDirectory(profiles, 0)
+		coverageByDir := aggregateCoverageByDirectory(profiles, 0, nil)
 		if len(coverageByDir) != 0 {
 			t.Errorf("Expected empty coverage map, got %d entries", len(coverageByDir))
 		}
@@ -437,7 +437,7 @@ func TestBoundaryValues(t *testing.T) {
 			t.Fatalf("Failed to parse zero statement file: %v", err)
 		}
 
-		coverageByDir := aggregateCoverageByDirectory(profiles, 0)
+		coverageByDir := aggregateCoverageByDirectory(profiles, 0, nil)
 		if len(coverageByDir) != 1 {
 			t.Fatalf("Expected 1 directory, got %d", len(coverageByDir))
 		}
@@ -520,6 +520,122 @@ func TestBoundaryValues(t *testing.T) {
 		filtered = filterDirectories(coverageByDir, 0.0, 49.9)
 		if len(filtered) != 0 {
 			t.Errorf("Expected exactly 50%% coverage to be excluded when max=49.9")
+		}
+	})
+}
+
+func TestShouldIgnoreDirectory(t *testing.T) {
+	tests := []struct {
+		name     string
+		dir      string
+		patterns []string
+		want     bool
+	}{
+		{
+			name:     "no patterns",
+			dir:      "pkg/util",
+			patterns: []string{},
+			want:     false,
+		},
+		{
+			name:     "exact match",
+			dir:      "pkg/util",
+			patterns: []string{"pkg/util"},
+			want:     true,
+		},
+		{
+			name:     "wildcard match",
+			dir:      "pkg/util",
+			patterns: []string{"pkg/*"},
+			want:     true,
+		},
+		{
+			name:     "parent directory match",
+			dir:      "pkg/util/subdir",
+			patterns: []string{"pkg"},
+			want:     true,
+		},
+		{
+			name:     "no match",
+			dir:      "cmd/server",
+			patterns: []string{"pkg/*", "internal/*"},
+			want:     false,
+		},
+		{
+			name:     "multiple patterns with match",
+			dir:      "internal/api",
+			patterns: []string{"pkg/*", "internal/*", "cmd/*"},
+			want:     true,
+		},
+		{
+			name:     "empty pattern",
+			dir:      "pkg/util",
+			patterns: []string{"", "pkg/*"},
+			want:     true,
+		},
+		{
+			name:     "complex wildcard",
+			dir:      "github.com/example/project/internal/api",
+			patterns: []string{"*/internal/*"},
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldIgnoreDirectory(tt.dir, tt.patterns)
+			if got != tt.want {
+				t.Errorf("shouldIgnoreDirectory(%q, %v) = %v, want %v",
+					tt.dir, tt.patterns, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAggregateCoverageWithIgnoredDirectories(t *testing.T) {
+	profiles, err := cover.ParseProfiles("testdata/coverage.out")
+	if err != nil {
+		t.Fatalf("Failed to parse test coverage file: %v", err)
+	}
+
+	t.Run("ignore internal directory", func(t *testing.T) {
+		ignoredPatterns := []string{"*/internal/*"}
+		result := aggregateCoverageByDirectory(profiles, 0, ignoredPatterns)
+
+		// Should not contain internal/service
+		if _, exists := result["github.com/example/project/internal/service"]; exists {
+			t.Error("Internal directory should be ignored")
+		}
+
+		// Should contain other directories
+		if _, exists := result["github.com/example/project/pkg/util"]; !exists {
+			t.Error("pkg/util should not be ignored")
+		}
+		if _, exists := result["github.com/example/project/cmd/server"]; !exists {
+			t.Error("cmd/server should not be ignored")
+		}
+	})
+
+	t.Run("ignore multiple patterns", func(t *testing.T) {
+		ignoredPatterns := []string{"*/pkg/*", "*/cmd/*"}
+		result := aggregateCoverageByDirectory(profiles, 0, ignoredPatterns)
+
+		// Should only contain internal directory
+		if len(result) != 1 {
+			t.Errorf("Expected only 1 directory (internal), got %d", len(result))
+		}
+
+		if _, exists := result["github.com/example/project/internal/service"]; !exists {
+			t.Error("internal/service should not be ignored")
+		}
+	})
+
+	t.Run("ignore all with wildcard", func(t *testing.T) {
+		ignoredPatterns := []string{"*"}
+		result := aggregateCoverageByDirectory(profiles, 0, ignoredPatterns)
+
+		if len(result) != 0 {
+			t.Errorf("Expected all directories to be ignored, got %d", len(result))
 		}
 	})
 }
