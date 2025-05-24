@@ -351,3 +351,174 @@ func TestMainFunction(t *testing.T) {
 	// We can't test the actual exit behavior in unit tests,
 	// but we can verify the function handles missing arguments
 }
+
+func TestCalculateCoverage(t *testing.T) {
+	tests := []struct {
+		name        string
+		stmtCount   int
+		stmtCovered int
+		want        float64
+	}{
+		{
+			name:        "normal coverage",
+			stmtCount:   10,
+			stmtCovered: 7,
+			want:        70.0,
+		},
+		{
+			name:        "zero statements",
+			stmtCount:   0,
+			stmtCovered: 0,
+			want:        0.0,
+		},
+		{
+			name:        "100% coverage",
+			stmtCount:   10,
+			stmtCovered: 10,
+			want:        100.0,
+		},
+		{
+			name:        "0% coverage",
+			stmtCount:   10,
+			stmtCovered: 0,
+			want:        0.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := calculateCoverage(tt.stmtCount, tt.stmtCovered)
+			if got != tt.want {
+				t.Errorf("calculateCoverage(%d, %d) = %f, want %f",
+					tt.stmtCount, tt.stmtCovered, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestErrorCases(t *testing.T) {
+	t.Run("invalid coverage profile", func(t *testing.T) {
+		_, err := cover.ParseProfiles("testdata/invalid.out")
+		if err == nil {
+			t.Error("Expected error for invalid coverage profile")
+		}
+	})
+
+	t.Run("nonexistent file", func(t *testing.T) {
+		_, err := cover.ParseProfiles("testdata/nonexistent.out")
+		if err == nil {
+			t.Error("Expected error for nonexistent file")
+		}
+	})
+
+	t.Run("empty coverage data", func(t *testing.T) {
+		profiles, err := cover.ParseProfiles("testdata/empty.out")
+		if err != nil {
+			t.Fatalf("Failed to parse empty coverage file: %v", err)
+		}
+
+		if len(profiles) != 0 {
+			t.Errorf("Expected 0 profiles, got %d", len(profiles))
+		}
+
+		// Test with empty data
+		coverageByDir := aggregateCoverageByDirectory(profiles, 0)
+		if len(coverageByDir) != 0 {
+			t.Errorf("Expected empty coverage map, got %d entries", len(coverageByDir))
+		}
+	})
+}
+
+func TestBoundaryValues(t *testing.T) {
+	t.Run("zero statements file", func(t *testing.T) {
+		profiles, err := cover.ParseProfiles("testdata/zerostmt.out")
+		if err != nil {
+			t.Fatalf("Failed to parse zero statement file: %v", err)
+		}
+
+		coverageByDir := aggregateCoverageByDirectory(profiles, 0)
+		if len(coverageByDir) != 1 {
+			t.Fatalf("Expected 1 directory, got %d", len(coverageByDir))
+		}
+
+		for _, cov := range coverageByDir {
+			if cov.stmtCount != 0 {
+				t.Errorf("Expected 0 statements, got %d", cov.stmtCount)
+			}
+			coverage := calculateCoverage(cov.stmtCount, cov.stmtCovered)
+			if coverage != 0.0 {
+				t.Errorf("Expected 0%% coverage, got %.1f%%", coverage)
+			}
+		}
+	})
+
+	t.Run("display with edge case coverages", func(t *testing.T) {
+		coverageByDir := map[string]*dirCoverage{
+			"zero": {
+				dir:         "zero",
+				stmtCount:   0,
+				stmtCovered: 0,
+			},
+			"perfect": {
+				dir:         "perfect",
+				stmtCount:   100,
+				stmtCovered: 100,
+			},
+			"none": {
+				dir:         "none",
+				stmtCount:   50,
+				stmtCovered: 0,
+			},
+		}
+
+		// Capture output
+		old := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayResults(coverageByDir, 0.0, 100.0)
+
+		w.Close()
+		os.Stdout = old
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := buf.String()
+
+		// Verify edge cases are displayed correctly
+		if !strings.Contains(output, "0.0%") {
+			t.Error("Output should contain 0.0% coverage")
+		}
+		if !strings.Contains(output, "100.0%") {
+			t.Error("Output should contain 100.0% coverage")
+		}
+	})
+
+	t.Run("filter edge cases", func(t *testing.T) {
+		coverageByDir := map[string]*dirCoverage{
+			"exactly50": {
+				dir:         "exactly50",
+				stmtCount:   10,
+				stmtCovered: 5,
+			},
+		}
+
+		// Test boundary inclusion
+		filtered := filterDirectories(coverageByDir, 50.0, 50.0)
+		if len(filtered) != 1 {
+			t.Errorf("Expected exactly 50%% coverage to be included when min=max=50")
+		}
+
+		// Test just below boundary
+		filtered = filterDirectories(coverageByDir, 50.1, 100.0)
+		if len(filtered) != 0 {
+			t.Errorf("Expected exactly 50%% coverage to be excluded when min=50.1")
+		}
+
+		// Test just above boundary
+		filtered = filterDirectories(coverageByDir, 0.0, 49.9)
+		if len(filtered) != 0 {
+			t.Errorf("Expected exactly 50%% coverage to be excluded when max=49.9")
+		}
+	})
+}
