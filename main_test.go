@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -519,6 +520,109 @@ func TestBoundaryValues(t *testing.T) {
 		filtered = filterDirectories(coverageByDir, 0.0, 49.9)
 		if len(filtered) != 0 {
 			t.Errorf("Expected exactly 50%% coverage to be excluded when max=49.9")
+		}
+	})
+}
+
+func TestOutputFormatters(t *testing.T) {
+	coverageByDir := map[string]*dirCoverage{
+		"pkg/util": {
+			dir:         "pkg/util",
+			stmtCount:   10,
+			stmtCovered: 8,
+		},
+		"cmd/server": {
+			dir:         "cmd/server",
+			stmtCount:   20,
+			stmtCovered: 10,
+		},
+	}
+
+	t.Run("TableFormatter", func(t *testing.T) {
+		var buf bytes.Buffer
+		formatter := &TableFormatter{writer: &buf}
+
+		err := displayResultsWithFormatter(coverageByDir, 0.0, 100.0, formatter)
+		if err != nil {
+			t.Fatalf("TableFormatter failed: %v", err)
+		}
+
+		output := buf.String()
+
+		// Verify table output
+		if !strings.Contains(output, "Directory") {
+			t.Error("Table output should contain header")
+		}
+		if !strings.Contains(output, "80.0%") {
+			t.Error("Table output should contain coverage percentage")
+		}
+		if !strings.Contains(output, "TOTAL") {
+			t.Error("Table output should contain TOTAL line")
+		}
+	})
+
+	t.Run("JSONFormatter", func(t *testing.T) {
+		var buf bytes.Buffer
+		formatter := &JSONFormatter{writer: &buf}
+
+		err := displayResultsWithFormatter(coverageByDir, 0.0, 100.0, formatter)
+		if err != nil {
+			t.Fatalf("JSONFormatter failed: %v", err)
+		}
+
+		// Parse JSON output
+		var output struct {
+			Results []CoverageResult `json:"results"`
+			Total   CoverageResult   `json:"total"`
+		}
+
+		if err := json.Unmarshal(buf.Bytes(), &output); err != nil {
+			t.Fatalf("Failed to parse JSON output: %v", err)
+		}
+
+		// Verify JSON structure
+		if len(output.Results) != 2 {
+			t.Errorf("Expected 2 results, got %d", len(output.Results))
+		}
+
+		if output.Total.Statements != 30 {
+			t.Errorf("Expected total statements 30, got %d", output.Total.Statements)
+		}
+
+		if output.Total.Covered != 18 {
+			t.Errorf("Expected total covered 18, got %d", output.Total.Covered)
+		}
+	})
+
+	t.Run("JSONFormatter with filters", func(t *testing.T) {
+		var buf bytes.Buffer
+		formatter := &JSONFormatter{writer: &buf}
+
+		err := displayResultsWithFormatter(coverageByDir, 60.0, 100.0, formatter)
+		if err != nil {
+			t.Fatalf("JSONFormatter failed: %v", err)
+		}
+
+		// Parse JSON output
+		var output struct {
+			Results       []CoverageResult `json:"results"`
+			Total         CoverageResult   `json:"total"`
+			FilteredTotal *CoverageResult  `json:"filtered_total"`
+		}
+
+		if err := json.Unmarshal(buf.Bytes(), &output); err != nil {
+			t.Fatalf("Failed to parse JSON output: %v", err)
+		}
+
+		// Verify filtered results
+		if len(output.Results) != 1 {
+			t.Errorf("Expected 1 filtered result, got %d", len(output.Results))
+		}
+
+		if output.FilteredTotal == nil {
+			t.Error("Expected filtered_total to be present")
+		} else if output.FilteredTotal.Statements != 10 {
+			t.Errorf("Expected filtered total statements 10, got %d", output.FilteredTotal.Statements)
 		}
 	})
 }

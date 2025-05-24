@@ -52,6 +52,7 @@ gocov -coverprofile=coverage.out
   - `-1`: トップレベルで全体を集計
 - `-min`: 表示する最小カバレッジ率（0-100、デフォルト: 0）
 - `-max`: 表示する最大カバレッジ率（0-100、デフォルト: 100）
+- `-format`: 出力フォーマット（table または json、デフォルト: table）
 
 ### 出力例
 
@@ -112,6 +113,33 @@ FILTERED TOTAL                                             14         10   71.4%
 TOTAL                                                     21         16   76.2%
 ```
 
+JSON形式での出力:
+```
+$ gocov -coverprofile=coverage.out -format json -min 75
+{
+  "results": [
+    {
+      "directory": "github.com/example/project/internal/service",
+      "statements": 7,
+      "covered": 6,
+      "coverage": 85.71428571428571
+    }
+  ],
+  "total": {
+    "directory": "TOTAL",
+    "statements": 21,
+    "covered": 16,
+    "coverage": 76.19047619047619
+  },
+  "filtered_total": {
+    "directory": "FILTERED TOTAL",
+    "statements": 7,
+    "covered": 6,
+    "coverage": 85.71428571428571
+  }
+}
+```
+
 ## 動作原理
 
 `gocov`は以下の手順でカバレッジを集計します：
@@ -125,14 +153,15 @@ TOTAL                                                     21         16   76.2%
 ## ユースケース
 
 - 大規模なGoプロジェクトでのカバレッジ管理
-- CI/CDパイプラインでのカバレッジレポート生成
+- CI/CDパイプラインでのカバレッジレポート生成（JSON出力を活用）
 - コードレビュー時のカバレッジ確認
 - モジュール単位でのテスト品質の可視化
+- カバレッジが低いディレクトリの特定（-minフラグを活用）
 
 ## 制限事項
 
-- 現在は標準出力への表示のみ対応（将来的にJSON出力等を追加予定）
 - カバレッジプロファイルファイルは事前に生成する必要があります
+- 出力先は標準出力のみ（リダイレクトで保存可能）
 
 ## 必要要件
 

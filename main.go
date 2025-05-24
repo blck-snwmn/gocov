@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,14 +20,39 @@ type dirCoverage struct {
 	stmtCovered int
 }
 
+// CoverageResult represents the coverage data for output
+type CoverageResult struct {
+	Directory  string  `json:"directory"`
+	Statements int     `json:"statements"`
+	Covered    int     `json:"covered"`
+	Coverage   float64 `json:"coverage"`
+}
+
+// OutputFormatter interface for different output formats
+type OutputFormatter interface {
+	Format(results []CoverageResult, totalResult CoverageResult, filteredTotal *CoverageResult) error
+}
+
+// TableFormatter formats output as a table
+type TableFormatter struct {
+	writer io.Writer
+}
+
+// JSONFormatter formats output as JSON
+type JSONFormatter struct {
+	writer io.Writer
+}
+
 func main() {
 	var coverProfile string
 	var level int
 	var minCoverage, maxCoverage float64
+	var outputFormat string
 	flag.StringVar(&coverProfile, "coverprofile", "", "Path to coverage profile file")
 	flag.IntVar(&level, "level", 0, "Directory level for aggregation (0 for leaf directories, -1 for all levels)")
 	flag.Float64Var(&minCoverage, "min", 0.0, "Minimum coverage percentage to display (0-100)")
 	flag.Float64Var(&maxCoverage, "max", 100.0, "Maximum coverage percentage to display (0-100)")
+	flag.StringVar(&outputFormat, "format", "table", "Output format (table or json)")
 	flag.Parse()
 
 	if coverProfile == "" {
@@ -49,7 +76,21 @@ func main() {
 	}
 
 	coverageByDir := aggregateCoverageByDirectory(profiles, level)
-	displayResults(coverageByDir, minCoverage, maxCoverage)
+
+	// Select formatter based on output format
+	var formatter OutputFormatter
+	switch outputFormat {
+	case "json":
+		formatter = &JSONFormatter{writer: os.Stdout}
+	case "table":
+		formatter = &TableFormatter{writer: os.Stdout}
+	default:
+		log.Fatalf("Unknown output format: %s", outputFormat)
+	}
+
+	if err := displayResultsWithFormatter(coverageByDir, minCoverage, maxCoverage, formatter); err != nil {
+		log.Fatalf("Failed to display results: %v", err)
+	}
 }
 
 func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[string]*dirCoverage {
@@ -108,22 +149,56 @@ func filterDirectories(coverageByDir map[string]*dirCoverage, minCoverage, maxCo
 	return filtered
 }
 
-func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCoverage float64) {
-	// Get all directories sorted
-	var allDirs []string
-	for dir := range coverageByDir {
-		allDirs = append(allDirs, dir)
-	}
-	sort.Strings(allDirs)
+// Format implements OutputFormatter for TableFormatter
+func (f *TableFormatter) Format(results []CoverageResult, totalResult CoverageResult, filteredTotal *CoverageResult) error {
+	// Display header
+	fmt.Fprintf(f.writer, "%-50s %10s %10s %8s\n", "Directory", "Statements", "Covered", "Coverage")
+	fmt.Fprintln(f.writer, strings.Repeat("-", 80))
 
+	// Display results
+	for _, result := range results {
+		fmt.Fprintf(f.writer, "%-50s %10d %10d %7.1f%%\n",
+			result.Directory, result.Statements, result.Covered, result.Coverage)
+	}
+
+	// Display total
+	fmt.Fprintln(f.writer, strings.Repeat("-", 80))
+
+	// Show filtered total if provided
+	if filteredTotal != nil {
+		fmt.Fprintf(f.writer, "%-50s %10d %10d %7.1f%%\n",
+			"FILTERED TOTAL", filteredTotal.Statements, filteredTotal.Covered, filteredTotal.Coverage)
+	}
+
+	fmt.Fprintf(f.writer, "%-50s %10d %10d %7.1f%%\n",
+		"TOTAL", totalResult.Statements, totalResult.Covered, totalResult.Coverage)
+
+	return nil
+}
+
+// Format implements OutputFormatter for JSONFormatter
+func (f *JSONFormatter) Format(results []CoverageResult, totalResult CoverageResult, filteredTotal *CoverageResult) error {
+	output := struct {
+		Results       []CoverageResult `json:"results"`
+		Total         CoverageResult   `json:"total"`
+		FilteredTotal *CoverageResult  `json:"filtered_total,omitempty"`
+	}{
+		Results:       results,
+		Total:         totalResult,
+		FilteredTotal: filteredTotal,
+	}
+
+	encoder := json.NewEncoder(f.writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(output)
+}
+
+func displayResultsWithFormatter(coverageByDir map[string]*dirCoverage, minCoverage, maxCoverage float64, formatter OutputFormatter) error {
 	// Filter directories based on coverage
 	filteredDirs := filterDirectories(coverageByDir, minCoverage, maxCoverage)
 
-	// Display header
-	fmt.Printf("%-50s %10s %10s %8s\n", "Directory", "Statements", "Covered", "Coverage")
-	fmt.Println(strings.Repeat("-", 80))
-
-	// Display coverage for filtered directories
+	// Build results
+	var results []CoverageResult
 	filteredStmts := 0
 	filteredCovered := 0
 
@@ -131,8 +206,12 @@ func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCover
 		cov := coverageByDir[dir]
 		coverage := calculateCoverage(cov.stmtCount, cov.stmtCovered)
 
-		fmt.Printf("%-50s %10d %10d %7.1f%%\n",
-			dir, cov.stmtCount, cov.stmtCovered, coverage)
+		results = append(results, CoverageResult{
+			Directory:  dir,
+			Statements: cov.stmtCount,
+			Covered:    cov.stmtCovered,
+			Coverage:   coverage,
+		})
 
 		filteredStmts += cov.stmtCount
 		filteredCovered += cov.stmtCovered
@@ -146,17 +225,29 @@ func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCover
 		totalCovered += cov.stmtCovered
 	}
 
-	// Display total
-	fmt.Println(strings.Repeat("-", 80))
-
-	// Show filtered total if filters are applied
-	if minCoverage > 0.0 || maxCoverage < 100.0 {
-		filteredCoverage := calculateCoverage(filteredStmts, filteredCovered)
-		fmt.Printf("%-50s %10d %10d %7.1f%%\n",
-			"FILTERED TOTAL", filteredStmts, filteredCovered, filteredCoverage)
+	totalResult := CoverageResult{
+		Directory:  "TOTAL",
+		Statements: totalStmts,
+		Covered:    totalCovered,
+		Coverage:   calculateCoverage(totalStmts, totalCovered),
 	}
 
-	totalCoverage := calculateCoverage(totalStmts, totalCovered)
-	fmt.Printf("%-50s %10d %10d %7.1f%%\n",
-		"TOTAL", totalStmts, totalCovered, totalCoverage)
+	// Prepare filtered total if filters are applied
+	var filteredTotal *CoverageResult
+	if minCoverage > 0.0 || maxCoverage < 100.0 {
+		filteredTotal = &CoverageResult{
+			Directory:  "FILTERED TOTAL",
+			Statements: filteredStmts,
+			Covered:    filteredCovered,
+			Coverage:   calculateCoverage(filteredStmts, filteredCovered),
+		}
+	}
+
+	return formatter.Format(results, totalResult, filteredTotal)
+}
+
+// Legacy function for backward compatibility
+func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCoverage float64) {
+	formatter := &TableFormatter{writer: os.Stdout}
+	_ = displayResultsWithFormatter(coverageByDir, minCoverage, maxCoverage, formatter)
 }
