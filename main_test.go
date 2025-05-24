@@ -185,49 +185,159 @@ func TestDisplayResults(t *testing.T) {
 			stmtCount:   20,
 			stmtCovered: 10,
 		},
+		"internal/api": {
+			dir:         "internal/api",
+			stmtCount:   15,
+			stmtCovered: 5,
+		},
 	}
 
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	t.Run("no filters", func(t *testing.T) {
+		old := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
-	displayResults(coverageByDir)
+		displayResults(coverageByDir, 0.0, 100.0)
 
-	w.Close()
-	os.Stdout = old
+		w.Close()
+		os.Stdout = old
 
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := buf.String()
 
-	// Check that output contains expected elements
-	if !strings.Contains(output, "Directory") {
-		t.Error("Output should contain header 'Directory'")
-	}
+		// Check that output contains expected elements
+		if !strings.Contains(output, "Directory") {
+			t.Error("Output should contain header 'Directory'")
+		}
 
-	if !strings.Contains(output, "cmd/server") {
-		t.Error("Output should contain 'cmd/server'")
-	}
+		if !strings.Contains(output, "cmd/server") {
+			t.Error("Output should contain 'cmd/server'")
+		}
 
-	if !strings.Contains(output, "pkg/util") {
-		t.Error("Output should contain 'pkg/util'")
-	}
+		if !strings.Contains(output, "pkg/util") {
+			t.Error("Output should contain 'pkg/util'")
+		}
 
-	if !strings.Contains(output, "TOTAL") {
-		t.Error("Output should contain 'TOTAL' line")
-	}
+		if !strings.Contains(output, "internal/api") {
+			t.Error("Output should contain 'internal/api'")
+		}
 
-	if !strings.Contains(output, "80.0%") {
-		t.Error("Output should contain correct coverage percentage for pkg/util (80.0%)")
-	}
+		if !strings.Contains(output, "TOTAL") {
+			t.Error("Output should contain 'TOTAL' line")
+		}
 
-	if !strings.Contains(output, "50.0%") {
-		t.Error("Output should contain correct coverage percentage for cmd/server (50.0%)")
-	}
+		if !strings.Contains(output, "80.0%") {
+			t.Error("Output should contain correct coverage percentage for pkg/util (80.0%)")
+		}
 
-	if !strings.Contains(output, "60.0%") {
-		t.Error("Output should contain correct total coverage percentage (60.0%)")
-	}
+		if !strings.Contains(output, "50.0%") {
+			t.Error("Output should contain correct coverage percentage for cmd/server (50.0%)")
+		}
+
+		if !strings.Contains(output, "33.3%") {
+			t.Error("Output should contain correct coverage percentage for internal/api (33.3%)")
+		}
+	})
+
+	t.Run("min coverage filter", func(t *testing.T) {
+		old := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayResults(coverageByDir, 50.0, 100.0)
+
+		w.Close()
+		os.Stdout = old
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := buf.String()
+
+		// Should contain directories with >= 50% coverage
+		if !strings.Contains(output, "cmd/server") {
+			t.Error("Output should contain 'cmd/server' (50.0%)")
+		}
+
+		if !strings.Contains(output, "pkg/util") {
+			t.Error("Output should contain 'pkg/util' (80.0%)")
+		}
+
+		// Should NOT contain directories with < 50% coverage
+		if strings.Contains(output, "internal/api") {
+			t.Error("Output should NOT contain 'internal/api' (33.3%)")
+		}
+
+		if !strings.Contains(output, "FILTERED TOTAL") {
+			t.Error("Output should contain 'FILTERED TOTAL' line")
+		}
+	})
+
+	t.Run("max coverage filter", func(t *testing.T) {
+		old := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayResults(coverageByDir, 0.0, 60.0)
+
+		w.Close()
+		os.Stdout = old
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := buf.String()
+
+		// Should contain directories with <= 60% coverage
+		if !strings.Contains(output, "cmd/server") {
+			t.Error("Output should contain 'cmd/server' (50.0%)")
+		}
+
+		if !strings.Contains(output, "internal/api") {
+			t.Error("Output should contain 'internal/api' (33.3%)")
+		}
+
+		// Should NOT contain directories with > 60% coverage
+		if strings.Contains(output, "pkg/util") {
+			t.Error("Output should NOT contain 'pkg/util' (80.0%)")
+		}
+
+		if !strings.Contains(output, "FILTERED TOTAL") {
+			t.Error("Output should contain 'FILTERED TOTAL' line")
+		}
+	})
+
+	t.Run("range coverage filter", func(t *testing.T) {
+		old := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayResults(coverageByDir, 40.0, 70.0)
+
+		w.Close()
+		os.Stdout = old
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := buf.String()
+
+		// Should only contain cmd/server (50.0%)
+		if !strings.Contains(output, "cmd/server") {
+			t.Error("Output should contain 'cmd/server' (50.0%)")
+		}
+
+		// Should NOT contain others
+		if strings.Contains(output, "pkg/util") {
+			t.Error("Output should NOT contain 'pkg/util' (80.0%)")
+		}
+
+		if strings.Contains(output, "internal/api") {
+			t.Error("Output should NOT contain 'internal/api' (33.3%)")
+		}
+
+		if !strings.Contains(output, "FILTERED TOTAL") {
+			t.Error("Output should contain 'FILTERED TOTAL' line")
+		}
+	})
 }
 
 func TestMainFunction(t *testing.T) {
