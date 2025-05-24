@@ -1,0 +1,17 @@
+mode: set
+github.com/example/project/pkg/util/helper.go:10.23,12.2 1 1
+github.com/example/project/pkg/util/helper.go:14.30,16.16 2 1
+github.com/example/project/pkg/util/helper.go:16.16,18.3 1 0
+github.com/example/project/pkg/util/helper.go:19.2,19.15 1 1
+github.com/example/project/pkg/util/math.go:5.29,7.2 1 1
+github.com/example/project/pkg/util/math.go:9.30,11.2 1 0
+github.com/example/project/cmd/server/main.go:12.13,14.16 2 1
+github.com/example/project/cmd/server/main.go:14.16,16.3 1 0
+github.com/example/project/cmd/server/main.go:17.2,18.23 2 1
+github.com/example/project/cmd/server/config.go:8.35,10.2 1 1
+github.com/example/project/cmd/server/config.go:12.40,14.2 1 0
+github.com/example/project/internal/service/user.go:15.50,17.16 2 1
+github.com/example/project/internal/service/user.go:17.16,19.3 1 0
+github.com/example/project/internal/service/user.go:20.2,21.8 2 1
+github.com/example/project/internal/service/auth.go:10.45,12.2 1 1
+github.com/example/project/internal/service/auth.go:14.50,16.2 1 1
