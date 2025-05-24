@@ -60,3 +60,6 @@ coverage.html
 # Debug files
 debug
 __debug_bin*
+
+# Claude-specific files
+CLAUDE.md
