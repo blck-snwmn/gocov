@@ -87,40 +87,61 @@ func aggregateCoverageByDirectory(profiles []*cover.Profile, level int) map[stri
 	return coverageByDir
 }
 
-func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCoverage float64) {
-	// Sort directories for consistent output
-	var dirs []string
-	for dir := range coverageByDir {
-		dirs = append(dirs, dir)
+// calculateCoverage calculates the coverage percentage
+func calculateCoverage(stmtCount, stmtCovered int) float64 {
+	if stmtCount > 0 {
+		return float64(stmtCovered) / float64(stmtCount) * 100
 	}
-	sort.Strings(dirs)
+	return 0.0
+}
+
+// filterDirectories filters directories based on coverage thresholds
+func filterDirectories(coverageByDir map[string]*dirCoverage, minCoverage, maxCoverage float64) []string {
+	var filtered []string
+	for dir, cov := range coverageByDir {
+		coverage := calculateCoverage(cov.stmtCount, cov.stmtCovered)
+		if coverage >= minCoverage && coverage <= maxCoverage {
+			filtered = append(filtered, dir)
+		}
+	}
+	sort.Strings(filtered)
+	return filtered
+}
+
+func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCoverage float64) {
+	// Get all directories sorted
+	var allDirs []string
+	for dir := range coverageByDir {
+		allDirs = append(allDirs, dir)
+	}
+	sort.Strings(allDirs)
+
+	// Filter directories based on coverage
+	filteredDirs := filterDirectories(coverageByDir, minCoverage, maxCoverage)
 
 	// Display header
 	fmt.Printf("%-50s %10s %10s %8s\n", "Directory", "Statements", "Covered", "Coverage")
 	fmt.Println(strings.Repeat("-", 80))
 
-	// Display coverage for each directory
-	totalStmts := 0
-	totalCovered := 0
+	// Display coverage for filtered directories
 	filteredStmts := 0
 	filteredCovered := 0
 
-	for _, dir := range dirs {
+	for _, dir := range filteredDirs {
 		cov := coverageByDir[dir]
-		coverage := 0.0
-		if cov.stmtCount > 0 {
-			coverage = float64(cov.stmtCovered) / float64(cov.stmtCount) * 100
-		}
+		coverage := calculateCoverage(cov.stmtCount, cov.stmtCovered)
 
-		// Apply coverage filters
-		if coverage >= minCoverage && coverage <= maxCoverage {
-			fmt.Printf("%-50s %10d %10d %7.1f%%\n",
-				dir, cov.stmtCount, cov.stmtCovered, coverage)
+		fmt.Printf("%-50s %10d %10d %7.1f%%\n",
+			dir, cov.stmtCount, cov.stmtCovered, coverage)
 
-			filteredStmts += cov.stmtCount
-			filteredCovered += cov.stmtCovered
-		}
+		filteredStmts += cov.stmtCount
+		filteredCovered += cov.stmtCovered
+	}
 
+	// Calculate totals
+	totalStmts := 0
+	totalCovered := 0
+	for _, cov := range coverageByDir {
 		totalStmts += cov.stmtCount
 		totalCovered += cov.stmtCovered
 	}
@@ -130,19 +151,12 @@ func displayResults(coverageByDir map[string]*dirCoverage, minCoverage, maxCover
 
 	// Show filtered total if filters are applied
 	if minCoverage > 0.0 || maxCoverage < 100.0 {
-		filteredCoverage := 0.0
-		if filteredStmts > 0 {
-			filteredCoverage = float64(filteredCovered) / float64(filteredStmts) * 100
-		}
+		filteredCoverage := calculateCoverage(filteredStmts, filteredCovered)
 		fmt.Printf("%-50s %10d %10d %7.1f%%\n",
 			"FILTERED TOTAL", filteredStmts, filteredCovered, filteredCoverage)
 	}
 
-	totalCoverage := 0.0
-	if totalStmts > 0 {
-		totalCoverage = float64(totalCovered) / float64(totalStmts) * 100
-	}
-
+	totalCoverage := calculateCoverage(totalStmts, totalCovered)
 	fmt.Printf("%-50s %10d %10d %7.1f%%\n",
 		"TOTAL", totalStmts, totalCovered, totalCoverage)
 }
