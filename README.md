@@ -1,5 +1,7 @@
 # gocov - Goカバレッジ集計ツール
 
+[![Test](https://github.com/blck-snwmn/gocov/actions/workflows/test.yml/badge.svg)](https://github.com/blck-snwmn/gocov/actions/workflows/test.yml)
+
 ## 概要
 
 `gocov`は、Goプロジェクトのテストカバレッジをディレクトリ単位で集計・表示するコマンドラインツールです。標準の`go test`で生成されたカバレッジプロファイルを解析し、各ディレクトリのカバレッジ率を見やすい表形式で出力します。
