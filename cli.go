@@ -35,6 +35,7 @@ func (c *CLI) Run() error {
 		configFile   string
 		concurrent   bool
 		threshold    float64
+		diffBase     string
 	)
 
 	flags := flag.NewFlagSet("gocov", flag.ContinueOnError)
@@ -49,6 +50,7 @@ func (c *CLI) Run() error {
 	flags.StringVar(&configFile, "config", "", "Path to configuration file")
 	flags.BoolVar(&concurrent, "concurrent", false, "Use concurrent processing for large coverage files")
 	flags.Float64Var(&threshold, "threshold", 0.0, "Minimum total coverage threshold to pass (0-100)")
+	flags.StringVar(&diffBase, "diff", "", "Show coverage for changed lines only (e.g., main, HEAD~1)")
 
 	if err := flags.Parse(c.Args); err != nil {
 		return err
@@ -78,6 +80,11 @@ func (c *CLI) Run() error {
 	profiles, err := cover.ParseProfiles(coverProfile)
 	if err != nil {
 		return NewParseError(coverProfile, err)
+	}
+
+	// Check if diff mode is enabled
+	if diffBase != "" {
+		return c.runDiffMode(profiles, diffBase, config.Threshold)
 	}
 
 	// Create analyzer
@@ -215,4 +222,26 @@ func (c *CLI) displayResults(coverageByDir map[string]*DirCoverage, minCoverage,
 
 	err := formatter.Format(results, totalResult, filteredTotal)
 	return totalResult.Coverage, err
+}
+
+// runDiffMode runs coverage analysis for changed lines only
+func (c *CLI) runDiffMode(profiles []*cover.Profile, diffBase string, threshold float64) error {
+	// Get git diff
+	diff, err := GetGitDiffWithContext(diffBase)
+	if err != nil {
+		return fmt.Errorf("failed to get git diff: %w", err)
+	}
+
+	// Calculate diff coverage
+	summary := CalculateDiffCoverage(profiles, diff)
+
+	// Format and display results
+	fmt.Fprint(c.Output, FormatDiffCoverage(summary))
+
+	// Check threshold if specified
+	if threshold > 0 && summary.Coverage < threshold {
+		return NewThresholdError(threshold, summary.Coverage)
+	}
+
+	return nil
 }
