@@ -33,7 +33,7 @@ func TestNewCoverageAnalyzer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			analyzer := NewCoverageAnalyzer(tt.level, tt.ignorePatterns)
 			if analyzer == nil {
-				t.Error("NewCoverageAnalyzer returned nil")
+				t.Fatal("NewCoverageAnalyzer returned nil")
 			}
 			if analyzer.level != tt.level {
 				t.Errorf("level = %d, want %d", analyzer.level, tt.level)
