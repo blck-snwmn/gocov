@@ -122,16 +122,7 @@ func (c *CLI) loadConfiguration(configFile, ignoreDirs string) (*Config, error) 
 }
 
 func (c *CLI) validateConfiguration(config *Config) error {
-	if config.Coverage.Min < 0 || config.Coverage.Min > 100 {
-		return NewValidationError("coverage.min", config.Coverage.Min, "must be between 0 and 100")
-	}
-	if config.Coverage.Max < 0 || config.Coverage.Max > 100 {
-		return NewValidationError("coverage.max", config.Coverage.Max, "must be between 0 and 100")
-	}
-	if config.Coverage.Min > config.Coverage.Max {
-		return NewValidationError("coverage", fmt.Sprintf("min=%v, max=%v", config.Coverage.Min, config.Coverage.Max), "min cannot be greater than max")
-	}
-	return nil
+	return ValidateCoverageConfig(config.Coverage.Min, config.Coverage.Max)
 }
 
 func (c *CLI) createFormatter(format string) (OutputFormatter, error) {

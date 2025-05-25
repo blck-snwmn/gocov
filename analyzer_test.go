@@ -96,7 +96,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 					t.Errorf("StmtCovered = %d, want %d", cov.StmtCovered, tt.wantCovered)
 				}
 
-				coverage := float64(cov.StmtCovered) / float64(cov.StmtCount) * 100
+				coverage := CalculateCoverage(cov.StmtCount, cov.StmtCovered)
 				if coverage < tt.wantCoverage-0.1 || coverage > tt.wantCoverage+0.1 {
 					t.Errorf("coverage = %.1f%%, want %.1f%%", coverage, tt.wantCoverage)
 				}
@@ -125,7 +125,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 			t.Errorf("StmtCovered = %d, want %d", cov.StmtCovered, wantCovered)
 		}
 
-		coverage := float64(cov.StmtCovered) / float64(cov.StmtCount) * 100
+		coverage := CalculateCoverage(cov.StmtCount, cov.StmtCovered)
 		if coverage < wantCoverage-0.1 || coverage > wantCoverage+0.1 {
 			t.Errorf("coverage = %.1f%%, want %.1f%%", coverage, wantCoverage)
 		}
@@ -152,7 +152,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 			t.Errorf("StmtCovered = %d, want %d", cov.StmtCovered, wantCovered)
 		}
 
-		coverage := float64(cov.StmtCovered) / float64(cov.StmtCount) * 100
+		coverage := CalculateCoverage(cov.StmtCount, cov.StmtCovered)
 		if coverage < wantCoverage-0.1 || coverage > wantCoverage+0.1 {
 			t.Errorf("coverage = %.1f%%, want %.1f%%", coverage, wantCoverage)
 		}
@@ -203,7 +203,7 @@ func TestAggregateCoverageByDirectory(t *testing.T) {
 					t.Errorf("StmtCovered = %d, want %d", cov.StmtCovered, tt.wantCovered)
 				}
 
-				coverage := float64(cov.StmtCovered) / float64(cov.StmtCount) * 100
+				coverage := CalculateCoverage(cov.StmtCount, cov.StmtCovered)
 				if coverage < tt.wantCoverage-0.1 || coverage > tt.wantCoverage+0.1 {
 					t.Errorf("coverage = %.1f%%, want %.1f%%", coverage, tt.wantCoverage)
 				}
