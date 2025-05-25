@@ -23,4 +23,3 @@ func ValidateFormat(format string) error {
 	}
 	return nil
 }
-

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -209,7 +210,7 @@ func TestCLIRun(t *testing.T) {
 
 func TestCLILoadConfiguration(t *testing.T) {
 	t.Run("load config file", func(t *testing.T) {
-		cli := &CLI{Output: io.Discard}
+		cli := NewCLI(io.Discard, []string{})
 		config, err := cli.loadConfiguration(".gocov.yml", "")
 		if err != nil {
 			t.Fatalf("Failed to load configuration: %v", err)
@@ -221,8 +222,23 @@ func TestCLILoadConfiguration(t *testing.T) {
 		}
 	})
 
+	t.Run("load invalid config file", func(t *testing.T) {
+		// Create an invalid config file
+		tempDir := t.TempDir()
+		invalidConfig := filepath.Join(tempDir, "invalid.yml")
+		if err := os.WriteFile(invalidConfig, []byte("invalid: yaml: content"), 0644); err != nil {
+			t.Fatalf("Failed to create invalid config: %v", err)
+		}
+
+		cli := NewCLI(io.Discard, []string{})
+		_, err := cli.loadConfiguration(invalidConfig, "")
+		if err == nil {
+			t.Error("Expected error for invalid config file")
+		}
+	})
+
 	t.Run("ignore patterns from command line", func(t *testing.T) {
-		cli := &CLI{Output: io.Discard}
+		cli := NewCLI(io.Discard, []string{})
 		config, err := cli.loadConfiguration("", "*/test/*, */vendor/*")
 		if err != nil {
 			t.Fatalf("Failed to load configuration: %v", err)

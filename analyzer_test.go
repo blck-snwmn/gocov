@@ -267,6 +267,18 @@ func TestShouldIgnoreDirectory(t *testing.T) {
 			patterns: []string{"*/internal/*"},
 			want:     true,
 		},
+		{
+			name:     "invalid pattern",
+			dir:      "pkg/util",
+			patterns: []string{"[invalid"},
+			want:     false,
+		},
+		{
+			name:     "pattern with path separator no match",
+			dir:      "pkg/util",
+			patterns: []string{"cmd/server"},
+			want:     false,
+		},
 	}
 
 	for _, tt := range tests {

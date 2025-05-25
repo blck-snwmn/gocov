@@ -128,4 +128,3 @@ func TestValidateFormat(t *testing.T) {
 		})
 	}
 }
-

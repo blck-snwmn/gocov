@@ -33,6 +33,7 @@ func (c *CLI) Run() error {
 		outputFormat string
 		ignoreDirs   string
 		configFile   string
+		concurrent   bool
 	)
 
 	flags := flag.NewFlagSet("gocov", flag.ContinueOnError)
@@ -42,9 +43,10 @@ func (c *CLI) Run() error {
 	flags.IntVar(&level, "level", 0, "Directory level for aggregation (0 for leaf directories, -1 for all levels)")
 	flags.Float64Var(&minCoverage, "min", 0.0, "Minimum coverage percentage to display (0-100)")
 	flags.Float64Var(&maxCoverage, "max", 100.0, "Maximum coverage percentage to display (0-100)")
-	flags.StringVar(&outputFormat, "format", "table", "Output format (table or json)")
+	flags.StringVar(&outputFormat, "format", "", "Output format (table or json)")
 	flags.StringVar(&ignoreDirs, "ignore", "", "Comma-separated list of directories to ignore (supports wildcards)")
 	flags.StringVar(&configFile, "config", "", "Path to configuration file")
+	flags.BoolVar(&concurrent, "concurrent", false, "Use concurrent processing for large coverage files")
 
 	if err := flags.Parse(c.Args); err != nil {
 		return err
@@ -63,7 +65,7 @@ func (c *CLI) Run() error {
 	}
 
 	// Merge command line flags with config
-	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, config.Ignore)
+	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, config.Ignore, &concurrent)
 
 	// Validate configuration
 	if err := c.validateConfiguration(config); err != nil {
@@ -78,7 +80,14 @@ func (c *CLI) Run() error {
 
 	// Create analyzer
 	analyzer := NewCoverageAnalyzer(config.Level, config.Ignore)
-	coverageByDir := analyzer.Aggregate(profiles)
+
+	// Aggregate coverage data
+	var coverageByDir map[string]*DirCoverage
+	if config.Concurrent {
+		coverageByDir = analyzer.AggregateConcurrent(profiles)
+	} else {
+		coverageByDir = analyzer.Aggregate(profiles)
+	}
 
 	// Create formatter
 	formatter, err := c.createFormatter(config.Format)

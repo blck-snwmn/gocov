@@ -28,11 +28,12 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestLoadConfig(t *testing.T) {
-	// Create a temporary config file
-	tempDir := t.TempDir()
-	configFile := filepath.Join(tempDir, ".gocov.yml")
+	t.Run("valid config", func(t *testing.T) {
+		// Create a temporary config file
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, ".gocov.yml")
 
-	configContent := `
+		configContent := `
 level: 2
 coverage:
   min: 50
@@ -43,35 +44,76 @@ ignore:
   - "*/test/*"
 `
 
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to create test config file: %v", err)
-	}
+		if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+			t.Fatalf("Failed to create test config file: %v", err)
+		}
 
-	// Test loading config
-	config, err := LoadConfig(configFile)
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
+		// Test loading config
+		config, err := LoadConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to load config: %v", err)
+		}
 
-	if config == nil {
-		t.Fatal("Expected config to be loaded, got nil")
-	}
+		if config == nil {
+			t.Fatal("Expected config to be loaded, got nil")
+		}
 
-	if config.Level != 2 {
-		t.Errorf("Expected level to be 2, got %d", config.Level)
-	}
-	if config.Coverage.Min != 50 {
-		t.Errorf("Expected min coverage to be 50, got %f", config.Coverage.Min)
-	}
-	if config.Coverage.Max != 90 {
-		t.Errorf("Expected max coverage to be 90, got %f", config.Coverage.Max)
-	}
-	if config.Format != "json" {
-		t.Errorf("Expected format to be 'json', got %s", config.Format)
-	}
-	if len(config.Ignore) != 2 {
-		t.Errorf("Expected 2 ignore patterns, got %d", len(config.Ignore))
-	}
+		if config.Level != 2 {
+			t.Errorf("Expected level to be 2, got %d", config.Level)
+		}
+		if config.Coverage.Min != 50 {
+			t.Errorf("Expected min coverage to be 50, got %f", config.Coverage.Min)
+		}
+		if config.Coverage.Max != 90 {
+			t.Errorf("Expected max coverage to be 90, got %f", config.Coverage.Max)
+		}
+		if config.Format != "json" {
+			t.Errorf("Expected format to be 'json', got %s", config.Format)
+		}
+		if len(config.Ignore) != 2 {
+			t.Errorf("Expected 2 ignore patterns, got %d", len(config.Ignore))
+		}
+	})
+
+	t.Run("file read error", func(t *testing.T) {
+		// Create a directory instead of a file to trigger read error
+		tempDir := t.TempDir()
+		configDir := filepath.Join(tempDir, ".gocov.yml")
+		if err := os.Mkdir(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+
+		config, err := LoadConfig(configDir)
+		if err == nil {
+			t.Error("Expected error when reading directory as file")
+		}
+		if config != nil {
+			t.Error("Expected nil config on error")
+		}
+	})
+
+	t.Run("yaml unmarshal error", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, ".gocov.yml")
+
+		// Invalid YAML content
+		invalidYAML := `
+level: [this is not valid
+coverage:
+  min: "not a number"
+`
+		if err := os.WriteFile(configFile, []byte(invalidYAML), 0644); err != nil {
+			t.Fatalf("Failed to create test config file: %v", err)
+		}
+
+		config, err := LoadConfig(configFile)
+		if err == nil {
+			t.Error("Expected error for invalid YAML")
+		}
+		if config != nil {
+			t.Error("Expected nil config on error")
+		}
+	})
 }
 
 func TestLoadConfigValidation(t *testing.T) {
@@ -170,7 +212,8 @@ func TestMergeWithFlags(t *testing.T) {
 	ignorePatterns := []string{"*/vendor/*"}
 
 	// Test merging when flags have non-default values
-	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns)
+	concurrent := true
+	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns, &concurrent)
 
 	if config.Level != 3 {
 		t.Errorf("Expected level to be 3 after merge, got %d", config.Level)
@@ -206,7 +249,8 @@ func TestMergeWithFlags(t *testing.T) {
 	outputFormat = "table"
 	ignorePatterns = nil
 
-	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns)
+	concurrent = false
+	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns, &concurrent)
 
 	if config.Level != 5 {
 		t.Errorf("Expected level to remain 5, got %d", config.Level)
@@ -226,38 +270,61 @@ func TestMergeWithFlags(t *testing.T) {
 }
 
 func TestFindConfigFile(t *testing.T) {
-	// Create a temporary directory structure
-	tempDir := t.TempDir()
-	subDir := filepath.Join(tempDir, "sub", "directory")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatalf("Failed to create test directory: %v", err)
-	}
+	t.Run("find in parent directory", func(t *testing.T) {
+		// Create a temporary directory structure
+		tempDir := t.TempDir()
+		subDir := filepath.Join(tempDir, "sub", "directory")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatalf("Failed to create test directory: %v", err)
+		}
 
-	// Create config file in parent directory
-	configFile := filepath.Join(tempDir, ".gocov.yml")
-	if err := os.WriteFile(configFile, []byte("level: 1"), 0644); err != nil {
-		t.Fatalf("Failed to create test config file: %v", err)
-	}
+		// Create config file in parent directory
+		configFile := filepath.Join(tempDir, ".gocov.yml")
+		if err := os.WriteFile(configFile, []byte("level: 1"), 0644); err != nil {
+			t.Fatalf("Failed to create test config file: %v", err)
+		}
 
-	// Change to subdirectory
-	originalWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	defer os.Chdir(originalWd)
+		// Change to subdirectory
+		originalWd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalWd)
 
-	if err := os.Chdir(subDir); err != nil {
-		t.Fatalf("Failed to change directory: %v", err)
-	}
+		if err := os.Chdir(subDir); err != nil {
+			t.Fatalf("Failed to change directory: %v", err)
+		}
 
-	// Test finding config file
-	found := FindConfigFile()
-	if found == "" {
-		t.Error("Expected to find config file in parent directory")
-	}
+		// Test finding config file
+		found := FindConfigFile()
+		if found == "" {
+			t.Error("Expected to find config file in parent directory")
+		}
 
-	// Verify the found file is correct
-	if filepath.Base(found) != ".gocov.yml" {
-		t.Errorf("Expected to find .gocov.yml, got %s", filepath.Base(found))
-	}
+		// Verify the found file is correct
+		if filepath.Base(found) != ".gocov.yml" {
+			t.Errorf("Expected to find .gocov.yml, got %s", filepath.Base(found))
+		}
+	})
+
+	t.Run("no config file found", func(t *testing.T) {
+		// Create a temporary directory without config file
+		tempDir := t.TempDir()
+
+		originalWd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+		defer os.Chdir(originalWd)
+
+		if err := os.Chdir(tempDir); err != nil {
+			t.Fatalf("Failed to change directory: %v", err)
+		}
+
+		// Test finding config file
+		found := FindConfigFile()
+		if found != "" {
+			t.Errorf("Expected no config file, but found: %s", found)
+		}
+	})
 }

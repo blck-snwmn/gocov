@@ -10,10 +10,11 @@ import (
 
 // Config は設定ファイルの構造を表す
 type Config struct {
-	Level    int            `yaml:"level"`
-	Coverage CoverageConfig `yaml:"coverage"`
-	Format   string         `yaml:"format"`
-	Ignore   []string       `yaml:"ignore"`
+	Level      int            `yaml:"level"`
+	Coverage   CoverageConfig `yaml:"coverage"`
+	Format     string         `yaml:"format"`
+	Ignore     []string       `yaml:"ignore"`
+	Concurrent bool           `yaml:"concurrent"`
 }
 
 // CoverageConfig はカバレッジ率フィルタリングの設定
@@ -30,8 +31,9 @@ func DefaultConfig() *Config {
 			Min: 0,
 			Max: 100,
 		},
-		Format: "table",
-		Ignore: []string{},
+		Format:     "table",
+		Ignore:     []string{},
+		Concurrent: false,
 	}
 }
 
@@ -92,7 +94,7 @@ func FindConfigFile() string {
 }
 
 // MergeWithFlags はコマンドライン引数で設定を上書きする
-func (c *Config) MergeWithFlags(level *int, minCov, maxCov *float64, format *string, ignorePatterns []string) {
+func (c *Config) MergeWithFlags(level *int, minCov, maxCov *float64, format *string, ignorePatterns []string, concurrent *bool) {
 	if level != nil && *level != 0 {
 		c.Level = *level
 	}
@@ -107,5 +109,8 @@ func (c *Config) MergeWithFlags(level *int, minCov, maxCov *float64, format *str
 	}
 	if len(ignorePatterns) > 0 {
 		c.Ignore = ignorePatterns
+	}
+	if concurrent != nil && *concurrent {
+		c.Concurrent = *concurrent
 	}
 }
