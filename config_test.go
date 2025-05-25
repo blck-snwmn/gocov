@@ -261,4 +261,3 @@ func TestFindConfigFile(t *testing.T) {
 		t.Errorf("Expected to find .gocov.yml, got %s", filepath.Base(found))
 	}
 }
-

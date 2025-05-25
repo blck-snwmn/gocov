@@ -87,4 +87,3 @@ func NewParseError(file string, err error) error {
 		Err:  err,
 	}
 }
-
