@@ -87,3 +87,21 @@ func NewParseError(file string, err error) error {
 		Err:  err,
 	}
 }
+
+// ThresholdError represents a threshold check failure
+type ThresholdError struct {
+	Threshold float64
+	Actual    float64
+}
+
+func (e *ThresholdError) Error() string {
+	return fmt.Sprintf("coverage %.1f%% is below threshold %.1f%%", e.Actual, e.Threshold)
+}
+
+// NewThresholdError creates a new ThresholdError
+func NewThresholdError(threshold, actual float64) error {
+	return &ThresholdError{
+		Threshold: threshold,
+		Actual:    actual,
+	}
+}

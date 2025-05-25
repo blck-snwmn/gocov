@@ -60,6 +60,7 @@ gocov -coverprofile=coverage.out
 - `-ignore`: 無視するディレクトリのカンマ区切りリスト（ワイルドカード対応）
 - `-concurrent`: 大きなカバレッジファイルに対して並行処理を使用（デフォルト: false）
 - `-config`: 設定ファイルのパス（デフォルト: カレントディレクトリから上位に向かって`.gocov.yml`を検索）
+- `-threshold`: 最小総カバレッジしきい値（0-100、デフォルト: 0）
 
 ### 出力例
 
@@ -158,6 +159,20 @@ github.com/example/project/pkg/util                        7          5   71.4%
 TOTAL                                                     14         10   71.4%
 ```
 
+カバレッジしきい値チェック（CIでの使用に最適）:
+```
+$ gocov -coverprofile=coverage.out -threshold 80
+Directory                                          Statements    Covered Coverage
+--------------------------------------------------------------------------------
+github.com/example/project/cmd/server                      7          5   71.4%
+github.com/example/project/internal/service                7          6   85.7%
+github.com/example/project/pkg/util                        7          5   71.4%
+--------------------------------------------------------------------------------
+TOTAL                                                     21         16   76.2%
+2025/05/25 15:00:00 coverage 76.2% is below threshold 80.0%
+# Exit code: 1
+```
+
 ## 設定ファイル
 
 `gocov`は`.gocov.yml`という設定ファイルをサポートしています。設定ファイルを使用することで、プロジェクトごとの設定を永続化し、コマンドラインオプションを簡略化できます。
@@ -192,6 +207,9 @@ ignore:
 
 # 並行処理の有効化
 concurrent: true
+
+# カバレッジしきい値（CIでの使用に最適）
+threshold: 80
 ```
 
 ### 優先順位

@@ -282,7 +282,7 @@ func TestCLIDisplayResults(t *testing.T) {
 
 		formatter := &TableFormatter{writer: w}
 		cli := &CLI{Output: w}
-		err := cli.displayResults(coverageByDir, 0.0, 100.0, formatter)
+		_, err := cli.displayResults(coverageByDir, 0.0, 100.0, formatter)
 		if err != nil {
 			t.Fatalf("displayResults failed: %v", err)
 		}
@@ -335,7 +335,7 @@ func TestCLIDisplayResults(t *testing.T) {
 
 		formatter := &TableFormatter{writer: w}
 		cli := &CLI{Output: w}
-		err := cli.displayResults(coverageByDir, 50.0, 100.0, formatter)
+		_, err := cli.displayResults(coverageByDir, 50.0, 100.0, formatter)
 		if err != nil {
 			t.Fatalf("displayResults failed: %v", err)
 		}
@@ -373,7 +373,7 @@ func TestCLIDisplayResults(t *testing.T) {
 
 		formatter := &TableFormatter{writer: w}
 		cli := &CLI{Output: w}
-		err := cli.displayResults(coverageByDir, 0.0, 60.0, formatter)
+		_, err := cli.displayResults(coverageByDir, 0.0, 60.0, formatter)
 		if err != nil {
 			t.Fatalf("displayResults failed: %v", err)
 		}
@@ -411,7 +411,7 @@ func TestCLIDisplayResults(t *testing.T) {
 
 		formatter := &TableFormatter{writer: w}
 		cli := &CLI{Output: w}
-		err := cli.displayResults(coverageByDir, 40.0, 70.0, formatter)
+		_, err := cli.displayResults(coverageByDir, 40.0, 70.0, formatter)
 		if err != nil {
 			t.Fatalf("displayResults failed: %v", err)
 		}

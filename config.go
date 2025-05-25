@@ -15,6 +15,7 @@ type Config struct {
 	Format     string         `yaml:"format"`
 	Ignore     []string       `yaml:"ignore"`
 	Concurrent bool           `yaml:"concurrent"`
+	Threshold  float64        `yaml:"threshold"`
 }
 
 // CoverageConfig はカバレッジ率フィルタリングの設定
@@ -34,6 +35,7 @@ func DefaultConfig() *Config {
 		Format:     "table",
 		Ignore:     []string{},
 		Concurrent: false,
+		Threshold:  0,
 	}
 }
 
@@ -94,7 +96,7 @@ func FindConfigFile() string {
 }
 
 // MergeWithFlags はコマンドライン引数で設定を上書きする
-func (c *Config) MergeWithFlags(level *int, minCov, maxCov *float64, format *string, ignorePatterns []string, concurrent *bool) {
+func (c *Config) MergeWithFlags(level *int, minCov, maxCov *float64, format *string, ignorePatterns []string, concurrent *bool, threshold *float64) {
 	if level != nil && *level != 0 {
 		c.Level = *level
 	}
@@ -112,5 +114,8 @@ func (c *Config) MergeWithFlags(level *int, minCov, maxCov *float64, format *str
 	}
 	if concurrent != nil && *concurrent {
 		c.Concurrent = *concurrent
+	}
+	if threshold != nil && *threshold != 0 {
+		c.Threshold = *threshold
 	}
 }

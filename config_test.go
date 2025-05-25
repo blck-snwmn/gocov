@@ -213,7 +213,8 @@ func TestMergeWithFlags(t *testing.T) {
 
 	// Test merging when flags have non-default values
 	concurrent := true
-	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns, &concurrent)
+	threshold := 0.0
+	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns, &concurrent, &threshold)
 
 	if config.Level != 3 {
 		t.Errorf("Expected level to be 3 after merge, got %d", config.Level)
@@ -250,7 +251,7 @@ func TestMergeWithFlags(t *testing.T) {
 	ignorePatterns = nil
 
 	concurrent = false
-	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns, &concurrent)
+	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns, &concurrent, &threshold)
 
 	if config.Level != 5 {
 		t.Errorf("Expected level to remain 5, got %d", config.Level)

@@ -23,3 +23,11 @@ func ValidateFormat(format string) error {
 	}
 	return nil
 }
+
+// ValidateThreshold validates the coverage threshold
+func ValidateThreshold(threshold float64) error {
+	if threshold < 0 || threshold > 100 {
+		return NewValidationError("threshold", threshold, "must be between 0 and 100")
+	}
+	return nil
+}
