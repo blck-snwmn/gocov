@@ -140,19 +140,35 @@ func FindMatchingProfile(profiles []*cover.Profile, file string) *cover.Profile 
 		}
 	}
 
-	// Try with different path combinations
+	// Try to find the best match (longest suffix match)
+	var bestMatch *cover.Profile
+	bestMatchLen := 0
+
 	for _, profile := range profiles {
 		// Check if the profile filename ends with our file
 		if strings.HasSuffix(profile.FileName, file) {
-			return profile
+			if len(file) > bestMatchLen {
+				bestMatch = profile
+				bestMatchLen = len(file)
+			}
 		}
 
 		// Check if the profile filename ends with /file
 		if strings.HasSuffix(profile.FileName, "/"+file) {
-			return profile
+			matchLen := len(file) + 1
+			if matchLen > bestMatchLen {
+				bestMatch = profile
+				bestMatchLen = matchLen
+			}
 		}
+	}
 
-		// Check if our file ends with the profile filename
+	if bestMatch != nil {
+		return bestMatch
+	}
+
+	// Fallback: check if our file ends with the profile filename
+	for _, profile := range profiles {
 		if strings.HasSuffix(file, filepath.Base(profile.FileName)) {
 			return profile
 		}

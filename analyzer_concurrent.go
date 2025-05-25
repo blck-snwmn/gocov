@@ -35,6 +35,9 @@ func (a *CoverageAnalyzer) AggregateConcurrent(profiles []*cover.Profile) map[st
 		go func() {
 			defer wg.Done()
 			for profile := range profileChan {
+				if profile == nil {
+					continue
+				}
 				result := a.processProfile(profile)
 				resultChan <- profileResult{coverageByDir: result}
 			}

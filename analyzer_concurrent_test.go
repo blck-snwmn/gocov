@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -109,6 +110,173 @@ func TestAggregateConcurrentSmallInput(t *testing.T) {
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
+	}
+}
+
+func TestAggregateConcurrentErrorHandling(t *testing.T) {
+	tests := []struct {
+		name     string
+		profiles []*cover.Profile
+		wantErr  bool
+	}{
+		{
+			name: "nil profile in list",
+			profiles: []*cover.Profile{
+				{
+					FileName: "test/file1.go",
+					Mode:     "set",
+					Blocks: []cover.ProfileBlock{
+						{StartLine: 1, StartCol: 1, EndLine: 10, EndCol: 1, NumStmt: 5, Count: 1},
+					},
+				},
+				nil, // This could cause issues if not handled properly
+				{
+					FileName: "test/file2.go",
+					Mode:     "set",
+					Blocks: []cover.ProfileBlock{
+						{StartLine: 1, StartCol: 1, EndLine: 10, EndCol: 1, NumStmt: 5, Count: 1},
+					},
+				},
+			},
+			wantErr: false, // Should handle gracefully
+		},
+		{
+			name: "profile with empty filename",
+			profiles: []*cover.Profile{
+				{
+					FileName: "",
+					Mode:     "set",
+					Blocks: []cover.ProfileBlock{
+						{StartLine: 1, StartCol: 1, EndLine: 10, EndCol: 1, NumStmt: 5, Count: 1},
+					},
+				},
+			},
+			wantErr: false, // Should handle gracefully
+		},
+		{
+			name: "profile with nil blocks",
+			profiles: []*cover.Profile{
+				{
+					FileName: "test/file.go",
+					Mode:     "set",
+					Blocks:   nil,
+				},
+			},
+			wantErr: false, // Should handle gracefully
+		},
+		{
+			name: "large number of profiles to stress test concurrent processing",
+			profiles: func() []*cover.Profile {
+				var ps []*cover.Profile
+				for i := 0; i < 100; i++ {
+					ps = append(ps, &cover.Profile{
+						FileName: fmt.Sprintf("test/file%d.go", i),
+						Mode:     "set",
+						Blocks: []cover.ProfileBlock{
+							{StartLine: 1, StartCol: 1, EndLine: 10, EndCol: 1, NumStmt: 5, Count: 1},
+						},
+					})
+				}
+				// Add some problematic profiles in the middle
+				ps[50] = nil
+				ps[75] = &cover.Profile{FileName: "", Mode: "set"}
+				return ps
+			}(),
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			analyzer := NewCoverageAnalyzer(0, nil)
+
+			// Create enough profiles to trigger concurrent processing
+			profiles := tt.profiles
+			if len(profiles) < 11 {
+				// Add dummy profiles to ensure concurrent processing
+				for i := len(profiles); i < 11; i++ {
+					profiles = append(profiles, &cover.Profile{
+						FileName: fmt.Sprintf("dummy/file%d.go", i),
+						Mode:     "set",
+						Blocks: []cover.ProfileBlock{
+							{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 1, NumStmt: 1, Count: 1},
+						},
+					})
+				}
+			}
+
+			// Run the concurrent aggregation and check it doesn't panic
+			defer func() {
+				if r := recover(); r != nil && !tt.wantErr {
+					t.Errorf("AggregateConcurrent() panicked unexpectedly: %v", r)
+				}
+			}()
+
+			result := analyzer.AggregateConcurrent(profiles)
+
+			// Verify result is not nil
+			if result == nil {
+				t.Error("AggregateConcurrent() returned nil result")
+			}
+		})
+	}
+}
+
+func TestProcessProfileErrorHandling(t *testing.T) {
+	tests := []struct {
+		name    string
+		profile *cover.Profile
+		wantErr bool
+	}{
+		{
+			name:    "nil profile",
+			profile: nil,
+			wantErr: true,
+		},
+		{
+			name: "profile with empty filename",
+			profile: &cover.Profile{
+				FileName: "",
+				Mode:     "set",
+				Blocks: []cover.ProfileBlock{
+					{StartLine: 1, StartCol: 1, EndLine: 10, EndCol: 1, NumStmt: 5, Count: 1},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "profile with special characters in filename",
+			profile: &cover.Profile{
+				FileName: "test/file with spaces and @#$.go",
+				Mode:     "set",
+				Blocks: []cover.ProfileBlock{
+					{StartLine: 1, StartCol: 1, EndLine: 10, EndCol: 1, NumStmt: 5, Count: 1},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			analyzer := NewCoverageAnalyzer(0, nil)
+
+			// Test processProfile directly
+			defer func() {
+				if r := recover(); r != nil {
+					if !tt.wantErr {
+						t.Errorf("processProfile() panicked unexpectedly: %v", r)
+					}
+				}
+			}()
+
+			if tt.profile != nil {
+				result := analyzer.processProfile(tt.profile)
+				if result == nil {
+					t.Error("processProfile() returned nil result")
+				}
+			}
+		})
 	}
 }
 

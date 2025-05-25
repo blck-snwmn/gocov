@@ -91,6 +91,11 @@ type HunkInfo struct {
 
 // parseHunkHeader parses a hunk header like "@@ -1,3 +1,5 @@"
 func parseHunkHeader(header string) *HunkInfo {
+	// Check if it's a valid hunk header
+	if !strings.HasPrefix(header, "@@") {
+		return nil
+	}
+
 	// Extract the numbers from the header
 	parts := strings.Split(header, " ")
 	if len(parts) < 3 {
@@ -142,7 +147,9 @@ func getAddedLinesFromHunk(allLines []string, hunkHeader string, info *HunkInfo)
 
 	// Process lines after the hunk header
 	currentLine := info.NewStart
-	for i := hunkIndex + 1; i < len(allLines) && i < hunkIndex+1+info.NewCount; i++ {
+	linesProcessed := 0
+
+	for i := hunkIndex + 1; i < len(allLines) && linesProcessed < info.NewCount; i++ {
 		line := allLines[i]
 		if strings.HasPrefix(line, "@@") {
 			break // Next hunk
@@ -151,8 +158,13 @@ func getAddedLinesFromHunk(allLines []string, hunkHeader string, info *HunkInfo)
 		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
 			addedLines = append(addedLines, currentLine)
 			currentLine++
-		} else if !strings.HasPrefix(line, "-") {
+			linesProcessed++
+		} else if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+			// Deleted lines don't count towards new file line numbers
+		} else if !strings.HasPrefix(line, "\\") {
+			// Context line
 			currentLine++
+			linesProcessed++
 		}
 	}
 
@@ -208,7 +220,7 @@ func GetGitDiffWithContext(baseRef string) (*GitDiff, error) {
 		default:
 			cmd = exec.Command("git", "diff", baseRef, "HEAD", "--", file)
 		}
-		
+
 		fileDiff, err := cmd.Output()
 		if err != nil {
 			continue
