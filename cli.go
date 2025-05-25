@@ -53,7 +53,7 @@ func (c *CLI) Run() error {
 	// Validate cover profile
 	if coverProfile == "" {
 		flags.Usage()
-		return fmt.Errorf("coverprofile is required")
+		return ErrNoInput
 	}
 
 	// Load configuration
@@ -73,7 +73,7 @@ func (c *CLI) Run() error {
 	// Parse coverage profile
 	profiles, err := cover.ParseProfiles(coverProfile)
 	if err != nil {
-		return fmt.Errorf("failed to parse coverage profile: %w", err)
+		return NewParseError(coverProfile, err)
 	}
 
 	// Create analyzer
@@ -123,13 +123,13 @@ func (c *CLI) loadConfiguration(configFile, ignoreDirs string) (*Config, error) 
 
 func (c *CLI) validateConfiguration(config *Config) error {
 	if config.Coverage.Min < 0 || config.Coverage.Min > 100 {
-		return fmt.Errorf("min must be between 0 and 100")
+		return NewValidationError("coverage.min", config.Coverage.Min, "must be between 0 and 100")
 	}
 	if config.Coverage.Max < 0 || config.Coverage.Max > 100 {
-		return fmt.Errorf("max must be between 0 and 100")
+		return NewValidationError("coverage.max", config.Coverage.Max, "must be between 0 and 100")
 	}
 	if config.Coverage.Min > config.Coverage.Max {
-		return fmt.Errorf("min cannot be greater than max")
+		return NewValidationError("coverage", fmt.Sprintf("min=%v, max=%v", config.Coverage.Min, config.Coverage.Max), "min cannot be greater than max")
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func (c *CLI) createFormatter(format string) (OutputFormatter, error) {
 	case "table":
 		return &TableFormatter{writer: c.Output}, nil
 	default:
-		return nil, fmt.Errorf("unknown output format: %s", format)
+		return nil, NewConfigError("format", format, ErrInvalidFormat)
 	}
 }
 

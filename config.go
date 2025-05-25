@@ -53,16 +53,16 @@ func LoadConfig(filename string) (*Config, error) {
 
 	// バリデーション
 	if config.Coverage.Min < 0 || config.Coverage.Min > 100 {
-		return nil, fmt.Errorf("invalid min coverage: %f (must be between 0 and 100)", config.Coverage.Min)
+		return nil, NewValidationError("coverage.min", config.Coverage.Min, "must be between 0 and 100")
 	}
 	if config.Coverage.Max < 0 || config.Coverage.Max > 100 {
-		return nil, fmt.Errorf("invalid max coverage: %f (must be between 0 and 100)", config.Coverage.Max)
+		return nil, NewValidationError("coverage.max", config.Coverage.Max, "must be between 0 and 100")
 	}
 	if config.Coverage.Min > config.Coverage.Max {
-		return nil, fmt.Errorf("min coverage (%f) cannot be greater than max coverage (%f)", config.Coverage.Min, config.Coverage.Max)
+		return nil, NewValidationError("coverage", fmt.Sprintf("min=%v, max=%v", config.Coverage.Min, config.Coverage.Max), "min cannot be greater than max")
 	}
 	if config.Format != "table" && config.Format != "json" {
-		return nil, fmt.Errorf("invalid format: %s (must be 'table' or 'json')", config.Format)
+		return nil, NewValidationError("format", config.Format, "must be 'table' or 'json'")
 	}
 
 	return &config, nil

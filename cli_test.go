@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -35,8 +36,8 @@ func TestCLIRun(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for missing coverprofile")
 		}
-		if !strings.Contains(err.Error(), "coverprofile is required") {
-			t.Errorf("Unexpected error message: %v", err)
+		if !errors.Is(err, ErrNoInput) {
+			t.Errorf("Expected ErrNoInput, got: %v", err)
 		}
 	})
 
@@ -48,8 +49,9 @@ func TestCLIRun(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for invalid coverage profile")
 		}
-		if !strings.Contains(err.Error(), "failed to parse coverage profile") {
-			t.Errorf("Unexpected error message: %v", err)
+		var parseErr *ParseError
+		if !errors.As(err, &parseErr) {
+			t.Errorf("Expected ParseError, got: %v", err)
 		}
 	})
 
@@ -146,8 +148,9 @@ func TestCLIRun(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for invalid format")
 		}
-		if !strings.Contains(err.Error(), "unknown output format") {
-			t.Errorf("Unexpected error message: %v", err)
+		var configErr *ConfigError
+		if !errors.As(err, &configErr) {
+			t.Errorf("Expected ConfigError, got: %v", err)
 		}
 	})
 
@@ -162,8 +165,9 @@ func TestCLIRun(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for invalid min coverage")
 		}
-		if !strings.Contains(err.Error(), "min must be between 0 and 100") {
-			t.Errorf("Unexpected error message: %v", err)
+		var validationErr *ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Errorf("Expected ValidationError, got: %v", err)
 		}
 	})
 
@@ -178,8 +182,9 @@ func TestCLIRun(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for invalid max coverage")
 		}
-		if !strings.Contains(err.Error(), "max must be between 0 and 100") {
-			t.Errorf("Unexpected error message: %v", err)
+		var validationErr *ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Errorf("Expected ValidationError, got: %v", err)
 		}
 	})
 
@@ -195,8 +200,9 @@ func TestCLIRun(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error when min > max")
 		}
-		if !strings.Contains(err.Error(), "min cannot be greater than max") {
-			t.Errorf("Unexpected error message: %v", err)
+		var validationErr *ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Errorf("Expected ValidationError, got: %v", err)
 		}
 	})
 }
@@ -420,4 +426,3 @@ func TestCLIDisplayResults(t *testing.T) {
 		}
 	})
 }
-
