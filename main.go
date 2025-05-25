@@ -49,18 +49,58 @@ func main() {
 	var minCoverage, maxCoverage float64
 	var outputFormat string
 	var ignoreDirs string
+	var configFile string
 	flag.StringVar(&coverProfile, "coverprofile", "", "Path to coverage profile file")
 	flag.IntVar(&level, "level", 0, "Directory level for aggregation (0 for leaf directories, -1 for all levels)")
 	flag.Float64Var(&minCoverage, "min", 0.0, "Minimum coverage percentage to display (0-100)")
 	flag.Float64Var(&maxCoverage, "max", 100.0, "Maximum coverage percentage to display (0-100)")
 	flag.StringVar(&outputFormat, "format", "table", "Output format (table or json)")
 	flag.StringVar(&ignoreDirs, "ignore", "", "Comma-separated list of directories to ignore (supports wildcards)")
+	flag.StringVar(&configFile, "config", "", "Path to configuration file")
 	flag.Parse()
 
+	// Load configuration
+	config := DefaultConfig()
+
+	// Try to find config file if not specified
+	if configFile == "" {
+		configFile = FindConfigFile()
+	}
+
+	// Load config file if found
+	if configFile != "" {
+		loadedConfig, err := LoadConfig(configFile)
+		if err != nil {
+			log.Fatalf("Failed to load config file: %v", err)
+		}
+		if loadedConfig != nil {
+			config = loadedConfig
+		}
+	}
+
+	// Parse ignore patterns from command line
+	var ignorePatterns []string
+	if ignoreDirs != "" {
+		ignorePatterns = strings.Split(ignoreDirs, ",")
+		for i := range ignorePatterns {
+			ignorePatterns[i] = strings.TrimSpace(ignorePatterns[i])
+		}
+	}
+
+	// Merge command line flags with config
+	config.MergeWithFlags(&level, &minCoverage, &maxCoverage, &outputFormat, ignorePatterns)
+
+	// Apply final configuration values
 	if coverProfile == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	level = config.Level
+	minCoverage = config.Coverage.Min
+	maxCoverage = config.Coverage.Max
+	outputFormat = config.Format
+	ignorePatterns = config.Ignore
 
 	if minCoverage < 0 || minCoverage > 100 {
 		log.Fatalf("min must be between 0 and 100")
@@ -77,16 +117,7 @@ func main() {
 		log.Fatalf("Failed to parse coverage profile: %v", err)
 	}
 
-	// Parse ignored directories
-	var ignoredPatterns []string
-	if ignoreDirs != "" {
-		ignoredPatterns = strings.Split(ignoreDirs, ",")
-		for i := range ignoredPatterns {
-			ignoredPatterns[i] = strings.TrimSpace(ignoredPatterns[i])
-		}
-	}
-
-	coverageByDir := aggregateCoverageByDirectory(profiles, level, ignoredPatterns)
+	coverageByDir := aggregateCoverageByDirectory(profiles, level, ignorePatterns)
 
 	// Select formatter based on output format
 	var formatter OutputFormatter
