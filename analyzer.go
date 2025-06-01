@@ -31,7 +31,13 @@ func NewCoverageAnalyzer(level int, ignorePatterns []string) *CoverageAnalyzer {
 
 // Aggregate aggregates coverage data by directory
 func (a *CoverageAnalyzer) Aggregate(profiles []*cover.Profile) map[string]*DirCoverage {
-	coverageByDir := make(map[string]*DirCoverage)
+	// Pre-allocate map with estimated capacity based on number of profiles
+	// Typically, each profile represents one file, and we might have multiple files per directory
+	estimatedDirs := len(profiles) / 3
+	if estimatedDirs < 10 {
+		estimatedDirs = 10
+	}
+	coverageByDir := make(map[string]*DirCoverage, estimatedDirs)
 
 	for _, profile := range profiles {
 		dir := filepath.Dir(profile.FileName)
@@ -132,7 +138,8 @@ func CalculateCoverage(stmtCount, stmtCovered int) float64 {
 
 // FilterDirectories filters directories based on coverage thresholds
 func FilterDirectories(coverageByDir map[string]*DirCoverage, minCoverage, maxCoverage float64) []string {
-	var filtered []string
+	// Pre-allocate slice with worst-case capacity (all directories)
+	filtered := make([]string, 0, len(coverageByDir))
 	for dir, cov := range coverageByDir {
 		coverage := CalculateCoverage(cov.StmtCount, cov.StmtCovered)
 		if coverage >= minCoverage && coverage <= maxCoverage {

@@ -47,7 +47,7 @@ func GetGitDiff(baseRef string) (*GitDiff, error) {
 
 	diff := &GitDiff{
 		BaseRef: baseRef,
-		Lines:   []DiffLine{},
+		Lines:   []DiffLine{}, // Let Go handle the allocation based on actual data
 	}
 
 	// Parse the diff output
@@ -130,7 +130,8 @@ func parseHunkHeader(header string) *HunkInfo {
 
 // getAddedLinesFromHunk extracts line numbers of added lines from a hunk
 func getAddedLinesFromHunk(allLines []string, hunkHeader string, info *HunkInfo) []int {
-	addedLines := []int{}
+	// Pre-allocate based on the new count from hunk info
+	addedLines := make([]int, 0, info.NewCount)
 
 	// Find the hunk header position
 	hunkIndex := -1
@@ -202,7 +203,7 @@ func GetGitDiffWithContext(baseRef string) (*GitDiff, error) {
 	changedFiles := strings.Split(strings.TrimSpace(string(output)), "\n")
 	diff := &GitDiff{
 		BaseRef: baseRef,
-		Lines:   []DiffLine{},
+		Lines:   []DiffLine{}, // Let Go handle the allocation based on actual data
 	}
 
 	// For each changed file, get detailed line changes
@@ -236,7 +237,11 @@ func GetGitDiffWithContext(baseRef string) (*GitDiff, error) {
 
 // parseFileDiff parses diff output for a single file
 func parseFileDiff(filename string, diffContent string) []DiffLine {
-	var result []DiffLine
+	// Count lines first to get a better capacity estimate
+	lineCount := strings.Count(diffContent, "\n")
+	// Assume roughly 1/3 of lines might be additions (rest are context, deletions, headers)
+	estimatedCapacity := max(lineCount/3, 10)
+	result := make([]DiffLine, 0, estimatedCapacity)
 	scanner := bufio.NewScanner(strings.NewReader(diffContent))
 
 	var currentNewLine int

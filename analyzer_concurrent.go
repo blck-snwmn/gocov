@@ -57,7 +57,12 @@ func (a *CoverageAnalyzer) AggregateConcurrent(profiles []*cover.Profile) map[st
 	}()
 
 	// Merge results
-	finalCoverage := make(map[string]*DirCoverage)
+	// Pre-allocate map with estimated capacity
+	estimatedDirs := len(profiles) / 3
+	if estimatedDirs < 10 {
+		estimatedDirs = 10
+	}
+	finalCoverage := make(map[string]*DirCoverage, estimatedDirs)
 	for result := range resultChan {
 		for dir, cov := range result.coverageByDir {
 			if existing, exists := finalCoverage[dir]; exists {
@@ -78,7 +83,8 @@ func (a *CoverageAnalyzer) AggregateConcurrent(profiles []*cover.Profile) map[st
 
 // processProfile processes a single profile and returns coverage by directory
 func (a *CoverageAnalyzer) processProfile(profile *cover.Profile) map[string]*DirCoverage {
-	coverageByDir := make(map[string]*DirCoverage)
+	// Most profiles will have only one directory
+	coverageByDir := make(map[string]*DirCoverage, 1)
 
 	dir := filepath.Dir(profile.FileName)
 

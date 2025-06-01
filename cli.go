@@ -175,7 +175,8 @@ func (c *CLI) displayResults(coverageByDir map[string]*DirCoverage, minCoverage,
 	filteredDirs := FilterDirectories(coverageByDir, minCoverage, maxCoverage)
 
 	// Build results
-	var results []CoverageResult
+	// Pre-allocate with the size of filtered directories
+	results := make([]CoverageResult, 0, len(filteredDirs))
 	filteredStmts := 0
 	filteredCovered := 0
 

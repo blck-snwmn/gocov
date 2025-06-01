@@ -179,7 +179,11 @@ func FindMatchingProfile(profiles []*cover.Profile, file string) *cover.Profile 
 
 // FormatDiffCoverage formats the diff coverage results for display
 func FormatDiffCoverage(summary *DiffCoverageSummary) string {
+	// Pre-allocate with estimated capacity based on results
+	// Header + each result (~200 chars) + footer
+	estimatedSize := 200 + len(summary.Results)*200 + 100
 	var output strings.Builder
+	output.Grow(estimatedSize)
 
 	output.WriteString("Diff Coverage Report:\n")
 	output.WriteString(strings.Repeat("=", 80) + "\n")
