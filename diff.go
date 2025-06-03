@@ -8,6 +8,23 @@ import (
 	"strings"
 )
 
+// executeGitDiffCommand executes git diff with appropriate flags based on baseRef
+func executeGitDiffCommand(baseRef string, extraArgs ...string) *exec.Cmd {
+	args := []string{"diff"}
+
+	switch baseRef {
+	case "staged", "cached":
+		args = append(args, "--cached")
+	case "working", "unstaged":
+		// No additional flags needed for working directory diff
+	default:
+		args = append(args, baseRef, "HEAD")
+	}
+
+	args = append(args, extraArgs...)
+	return exec.Command("git", args...)
+}
+
 // DiffLine represents a changed line in a file
 type DiffLine struct {
 	File       string
@@ -27,18 +44,7 @@ func GetGitDiff(baseRef string) (*GitDiff, error) {
 		baseRef = "HEAD~1"
 	}
 
-	var cmd *exec.Cmd
-	switch baseRef {
-	case "staged", "cached":
-		// Get staged changes
-		cmd = exec.Command("git", "diff", "--cached", "--unified=0")
-	case "working", "unstaged":
-		// Get unstaged changes
-		cmd = exec.Command("git", "diff", "--unified=0")
-	default:
-		// Get diff between commits
-		cmd = exec.Command("git", "diff", baseRef, "HEAD", "--unified=0")
-	}
+	cmd := executeGitDiffCommand(baseRef, "--unified=0")
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -185,15 +191,7 @@ func GetGitDiffWithContext(baseRef string) (*GitDiff, error) {
 	}
 
 	// Use git diff with name-status to get changed files first
-	var cmd *exec.Cmd
-	switch baseRef {
-	case "staged", "cached":
-		cmd = exec.Command("git", "diff", "--cached", "--name-only")
-	case "working", "unstaged":
-		cmd = exec.Command("git", "diff", "--name-only")
-	default:
-		cmd = exec.Command("git", "diff", baseRef, "HEAD", "--name-only")
-	}
+	cmd := executeGitDiffCommand(baseRef, "--name-only")
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -213,14 +211,7 @@ func GetGitDiffWithContext(baseRef string) (*GitDiff, error) {
 		}
 
 		// Get diff for specific file
-		switch baseRef {
-		case "staged", "cached":
-			cmd = exec.Command("git", "diff", "--cached", "--", file)
-		case "working", "unstaged":
-			cmd = exec.Command("git", "diff", "--", file)
-		default:
-			cmd = exec.Command("git", "diff", baseRef, "HEAD", "--", file)
-		}
+		cmd := executeGitDiffCommand(baseRef, "--", file)
 
 		fileDiff, err := cmd.Output()
 		if err != nil {

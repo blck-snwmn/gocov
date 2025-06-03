@@ -40,26 +40,14 @@ func (a *CoverageAnalyzer) Aggregate(profiles []*cover.Profile) map[string]*DirC
 	coverageByDir := make(map[string]*DirCoverage, estimatedDirs)
 
 	for _, profile := range profiles {
-		dir := filepath.Dir(profile.FileName)
-
-		// Check if directory should be ignored
-		if ShouldIgnoreDirectory(dir, a.ignorePatterns) {
-			continue
-		}
-
-		// Adjust directory path based on level
-		dir = a.adjustDirectoryLevel(dir)
-
-		if _, exists := coverageByDir[dir]; !exists {
-			coverageByDir[dir] = &DirCoverage{Dir: dir}
-		}
-
-		for _, block := range profile.Blocks {
-			stmtCount := block.NumStmt
-			coverageByDir[dir].StmtCount += stmtCount
-
-			if block.Count > 0 {
-				coverageByDir[dir].StmtCovered += stmtCount
+		result := a.processProfile(profile)
+		// Merge the result into coverageByDir
+		for dir, cov := range result {
+			if existing, exists := coverageByDir[dir]; exists {
+				existing.StmtCount += cov.StmtCount
+				existing.StmtCovered += cov.StmtCovered
+			} else {
+				coverageByDir[dir] = cov
 			}
 		}
 	}
