@@ -37,7 +37,7 @@ func TestAggregateConcurrent(t *testing.T) {
 	}
 
 	// Add more profiles to trigger concurrent processing
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		profiles = append(profiles, &cover.Profile{
 			FileName: "github.com/example/project/pkg/test/file" + string(rune('a'+i)) + ".go",
 			Mode:     "set",
@@ -168,7 +168,7 @@ func TestAggregateConcurrentErrorHandling(t *testing.T) {
 			name: "large number of profiles to stress test concurrent processing",
 			profiles: func() []*cover.Profile {
 				var ps []*cover.Profile
-				for i := 0; i < 100; i++ {
+				for i := range 100 {
 					ps = append(ps, &cover.Profile{
 						FileName: fmt.Sprintf("test/file%d.go", i),
 						Mode:     "set",
@@ -283,7 +283,7 @@ func TestProcessProfileErrorHandling(t *testing.T) {
 func BenchmarkAggregate(b *testing.B) {
 	// Create a large set of test profiles
 	var profiles []*cover.Profile
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		profiles = append(profiles, &cover.Profile{
 			FileName: "github.com/example/project/pkg/module" + string(rune('a'+i%26)) + "/file.go",
 			Mode:     "set",
